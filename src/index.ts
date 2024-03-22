@@ -5,8 +5,20 @@ import { cors } from "hono/cors";
 import { z } from "zod";
 // import SoundCloud from "soundcloud-scraper";
 
+export interface Env {
+  // If you set another name in wrangler.toml as the value for 'binding',
+  // replace "DB" with the variable name you defined.
+  DB: D1Database;
+}
+type Bindings = {
+  DB: D1Database;
 
-const app = new Hono();
+}
+
+
+// let mainUrl = "";
+
+const app = new Hono<{Bindings:Bindings}>
 
 app.use("/", cors());
 
@@ -22,29 +34,53 @@ function youtube_parser(url: string): string | false {
 }
 
 app.all("/", async (c) => {
-  const { id } = c.req.query();
- 
- 
+  const { url } = c.req.query(); 
+  let mainUrl;
+  try {
+
+  mainUrl  = await c.env.DB.prepare("SELECT * FROM UrlData").all();
+    console.log(mainUrl.results);
+  } catch (error) {
+    console.error("Error: ", error);
+    // Handle the error appropriately
+  }
   c.res.headers.append(
     "user-agent",
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3"
   );
-  
-  if (!id) {
-    return c.redirect("https://codingstark.com/");
+
+  // if (!id) {
+  //   return c.redirect("https://codingstark.com/");
+  // }
+  if (url) {
+    console.log(url);
+    //     DROP TABLE IF EXISTS UrlData;
+    // CREATE TABLE IF NOT EXISTS UrlData (
+    //     url VARCHAR(255) NOT NULL
+    // );
+    // INSERT INTO UrlData (url) VALUES ('http://www.google.com');
+    let { success, error } = await c.env.DB.prepare("UPDATE UrlData SET (url) = ?").  bind(url).run();
+    console.log(success);
+    console.log(error);
+
+    // mainUrl =  z.string().parse(id);
   }
+  
   // let video = await YouTube.getVideo(id);
   // console.log(await searchManager.search("song", "MUSIC"));
   // console.log(video);
   //scrape the id from the youtube url
-  const url = z.string().parse(id);
-  console.log(url);
+  // const url = z.string().parse(id);
+  // console.log(url);
+  if (mainUrl!.results.length === 0) {
+    return c.text("no url found");
+  }
   let dataofsd = await fetch(
-    `https://soundclouddl.netlify.app/api/audio.json?url=${url}`
+    `https://soundclouddl.netlify.app/api/audio.json?url=${mainUrl!.results[0].url}`
   );
   console.log(dataofsd);
- let data :any = await dataofsd.json();
-console.log(data);
+  let data: any = await dataofsd.json();
+  console.log(data);
   // if (url.includes("playlist") || url.includes("list")) {
   //   throw new Error("This is a playlist, not a video");
   // }
@@ -72,11 +108,18 @@ console.log(data);
   // }
   // let videodata = await fetch(audioUrls[0]);
 
+  c.header("Content-Type", "audio/mpeg");
 
-c.header("Content-Type", "audio/mpeg");
+  if (mainUrl!.results.length > 0) {
+    if (data.fetchStreamURL) {
+      return c.body((await fetch(data.fetchStreamURL)).body);
+    } else {
+      return c.text("No audio found");
+    }
+  } else {
+    return c.text("No audio found");
+  }
 
-  return c.body( (await fetch(data.fetchStreamURL)).body );
-  
   // c.html(
   //   `<audio controls>
   //   <source src="${data.fetchStreamURL}" type="audio/mp3">
@@ -108,7 +151,7 @@ app.all("playlist", async (c) => {
     .contents[0].playlistVideoListRenderer.contents) {
     videoUrls.push(video.playlistVideoRenderer.videoId);
   }
-  
+
   return c.html(
     `<html>
     <body>
