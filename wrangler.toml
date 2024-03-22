@@ -2,6 +2,9 @@ name = "ytscraperstream"
 compatibility_date = "2023-12-01"
 main = "src/index.ts"
 
+[dev]
+port =  8081
+local_protocol = "http"
 
 # [vars]
 # MY_VAR = "my-variable"
@@ -14,7 +17,7 @@ main = "src/index.ts"
 # binding = "MY_BUCKET"
 # bucket_name = "my-bucket"
 
-# [[d1_databases]]
-# binding = "DB"
-# database_name = "my-database"
-# database_id = ""
+[[d1_databases]]
+binding = "DB"
+database_name = "UrlData"
+database_id = "e33e8fbf-1f7c-4c36-b3e8-ff3a0ecd2d3d"
